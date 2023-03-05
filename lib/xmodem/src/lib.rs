@@ -279,15 +279,14 @@ impl<T: io::Read + io::Write> Xmodem<T> {
 
     pub fn end_trans_send(&mut self) -> io::Result<usize> {
         self.write_byte(EOT)?;
-        self.expect_byte(NAK, "NAK expected")?;
+        self.expect_byte_or_cancel(NAK, "NAK expected")?;
         self.write_byte(EOT)?;
-        self.expect_byte(ACK, "ACK expected")?;
+        self.expect_byte_or_cancel(ACK, "ACK expected")?;
         self.started = false;
         return Ok(0);
     }
 
     pub fn end_trans_rcv(&mut self) -> io::Result<usize> {
-        self.expect_byte(EOT, "EOT expected")?;
         self.write_byte(NAK)?;
         self.expect_byte(EOT, "EOT expected")?;
         self.write_byte(ACK)?;
@@ -328,7 +327,7 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     /// An error of kind `Interrupted` is returned if a packet checksum fails.
     pub fn write_packet(&mut self, buf: &[u8]) -> io::Result<usize> {
         if buf.len() < 128 && buf.len() != 0 {
-            return ioerr!(UnexpectedEof, "buf.len() wrong size");
+            return ioerr!(UnexpectedEof, "buf wrong size");
         }
 
         if !self.started {
@@ -353,9 +352,7 @@ impl<T: io::Read + io::Write> Xmodem<T> {
         self.write_byte(SOH)?;
         self.write_byte(self.packet)?;
         self.write_byte(!self.packet)?;
-        for i in 0..buf.len() {
-            self.write_byte(buf[i])?;
-        }
+        self.inner.write_all(&buf);
         self.write_byte(get_checksum(buf))?;
         return self.read_byte(true);
     }
