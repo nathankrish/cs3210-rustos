@@ -5,7 +5,7 @@ set -e
 TOP=$(git rev-parse --show-toplevel)
 BIN=$TOP/bin
 DEP=$TOP/.dep
-VER=nightly-2019-07-01
+VER=nightly
 PROJ_PKG=(build-essential
      python3
      socat

@@ -250,8 +250,9 @@ impl<T: io::Read + io::Write> Xmodem<T> {
             self.write_byte(NAK)?;
             self.started = true;
         }
-
+        (self.progress)(Progress::Started);
         let first_byte = self.read_byte(true)?;
+        (self.progress)(Progress::Packet(self.packet));
         // first byte must be SOH or EOT
         if first_byte != SOH && first_byte != EOT {
             return ioerr!(InvalidData, "first byte not SOH or EOT");
@@ -331,14 +332,17 @@ impl<T: io::Read + io::Write> Xmodem<T> {
         }
 
         if !self.started {
-            self.expect_byte_or_cancel(NAK, "expected NAK");
+            (self.progress)(Progress::Waiting);
+            self.expect_byte_or_cancel(NAK, "expected NAK")?;
             self.started = true;
+            (self.progress)(Progress::Started);
         }
         if buf.len() == 0 {
             return self.end_trans_send();
         }
-       
+
         let response = self.send_packet_bytes(buf)?;
+        (self.progress)(Progress::Waiting);
         if response == NAK {
             return ioerr!(Interrupted, "read interrupted");
         } else if response == ACK {
@@ -352,7 +356,7 @@ impl<T: io::Read + io::Write> Xmodem<T> {
         self.write_byte(SOH)?;
         self.write_byte(self.packet)?;
         self.write_byte(!self.packet)?;
-        self.inner.write_all(&buf);
+        self.inner.write_all(&buf)?;
         self.write_byte(get_checksum(buf))?;
         return self.read_byte(true);
     }
